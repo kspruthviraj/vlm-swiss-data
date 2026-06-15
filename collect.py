@@ -1083,6 +1083,412 @@ class ProductCatalogScraper:
 
 
 # ---------------------------------------------------------------------------
+# Synthetic data generator — creates realistic Swiss documents as images
+# ---------------------------------------------------------------------------
+
+class SyntheticGenerator:
+    """Generate realistic synthetic Swiss document images with QA pairs.
+
+    Creates timetable boards, receipts, tax forms, news cards, and captions
+    with proper multilingual content (DE/FR/IT/EN).
+    """
+
+    STATIONS_DE = [
+        ("Zürich HB", "8503000"), ("Bern", "8507000"), ("Basel SBB", "8500010"),
+        ("Genève", "8501008"), ("Lausanne", "8501120"), ("Luzern", "8505000"),
+        ("Lugano", "8505300"), ("St. Gallen", "8506302"), ("Interlaken Ost", "8507493"),
+        ("Chur", "8509000"), ("Bellinzona", "8505213"), ("Thun", "8507100"),
+        ("Biel/Bienne", "8504300"), ("Schaffhausen", "8503401"), ("Winterthur", "8506000"),
+        ("Aarau", "8502113"), ("Solothurn", "8500218"), ("Fribourg", "8504100"),
+        ("Neuchâtel", "8504221"), ("Sion", "8501427"),
+    ]
+
+    TRAIN_TYPES = ["IC", "ICE", "IR", "RE", "S", "EC", "EN", "TGV"]
+    PLATFORMS = [str(i) for i in range(1, 25)]
+
+    PRODUCTS = {
+        "de": [
+            ("Vollmilch 1L", "CHF 1.50"), ("Brot geschnitten", "CHF 3.20"),
+            ("Butter 250g", "CHF 2.80"), ("Eier 10er", "CHF 5.30"),
+            ("Äpfel 1kg", "CHF 3.50"), ("Käse Emmentaler 200g", "CHF 4.10"),
+            ("Schokolade Frey 100g", "CHF 1.90"), ("Rivella 0.5L", "CHF 1.80"),
+            ("Zopf Brot", "CHF 3.60"), ("Yogurt Nature 500g", "CHF 1.20"),
+            ("Tomaten 500g", "CHF 2.90"), ("Bananen 1kg", "CHF 2.50"),
+            ("Cervelat 200g", "CHF 3.80"), ("Rösti 500g", "CHF 2.40"),
+            ("Fondue-Mischung 400g", "CHF 8.90"),
+        ],
+        "fr": [
+            ("Lait entier 1L", "CHF 1.50"), ("Pain tranché", "CHF 3.20"),
+            ("Beurre 250g", "CHF 2.80"), ("Œufs x10", "CHF 5.30"),
+            ("Pommes 1kg", "CHF 3.50"), ("Gruyère 200g", "CHF 4.10"),
+            ("Chocolat Lindt 100g", "CHF 2.50"), ("Rivella 0.5L", "CHF 1.80"),
+            ("Tresse", "CHF 3.60"), ("Yaourt nature 500g", "CHF 1.20"),
+        ],
+    }
+
+    TAX_FIELDS = {
+        "de": {
+            "Nachname": ["Müller", "Schneider", "Weber", "Fischer", "Meyer", "Baumann", "Huber", "Keller"],
+            "Vorname": ["Hans", "Maria", "Thomas", "Anna", "Peter", "Claudia", "Beat", "Eva"],
+            "Strasse": ["Bahnhofstrasse", "Seestrasse", "Gartenweg", "Hauptgasse", "Aarauerstrasse"],
+            "Ort": ["Zürich", "Bern", "Basel", "Luzern", "Winterthur", "Aarau", "Thun", "St. Gallen"],
+            "PLZ": ["8001", "3001", "4001", "6000", "8400", "5000", "3600", "9000"],
+            "Zivilstand": ["ledig", "verheiratet", "verwitwet", "geschieden"],
+        },
+    }
+
+    NEWS_TOPICS = {
+        "de": [
+            ("Bundesrat beschliesst neue Klimaziele", "Politik", "Der Schweizer Bundesrat hat heute ehrgeizige neue Klimaziele für 2035 verabschiedet."),
+            ("SBB-Rekord: 500 Millionen Passagiere", "Verkehr", "Die Schweizerischen Bundesbahnen haben erstmals die 500-Millionen-Passagier-Marke geknackt."),
+            ("Neue Gletscherstudie alarmiert", "Umwelt", "Eine neue Studie der ETH Zürich zeigt, dass die Schweizer Gletscher 2025 noch schneller schmelzen."),
+            ("Swissquote meldet Rekordgewinn", "Wirtschaft", "Die Schweizer Online-Bank Swissquote hat im vergangenen Jahr einen Rekordgewinn erzielt."),
+            ("Zürcher Sechseläuten mit Rekordbesuch", "Kultur", "Das Zürcher Sechseläuten hat in diesem Jahr einen neuen Besucherrekord aufgestellt."),
+            ("CERN entdeckt neues Teilchen", "Wissenschaft", "Forschende am CERN in Genf haben ein neues subatomares Teilchen nachgewiesen."),
+            ("Eidgenössisches Schwingfest in Lausanne", "Sport", "Das Eidgenössische Schwing- und Älplerfest in Lausanne zieht Zehntausende Besucher an."),
+            ("UBS übernimmt Credit Suisse komplett", "Wirtschaft", "Die UBS hat die vollständige Integration der Credit Suisse abgeschlossen."),
+            ("Gotthard-Basistunnel erneuert", "Verkehr", "Der Gotthard-Basistunnel wird in den nächsten drei Jahren saniert."),
+            ("Schweizer Schokolade exportiert Rekord", "Wirtschaft", "Die Schweizer Schokoladenexporte haben im vergangenen Jahr einen neuen Rekord erreicht."),
+        ],
+        "fr": [
+            ("Le Conseil fédéral annonce de nouvelles mesures climatiques", "Politique", "Le Conseil fédéral suisse a adopté aujourd'hui de nouveaux objectifs climatiques ambitieux pour 2035."),
+            ("Record de passagers aux CFF", "Transport", "Les Chemins de fer fédéraux suisses ont franchi pour la première fois la barre des 500 millions de passagers."),
+            ("Nouvelle étude sur les glaciers alarmante", "Environnement", "Une nouvelle étude de l'ETH Zurich montre que les glaciers suisses fondent encore plus rapidement en 2025."),
+            ("Swissquote annonce un bénéfice record", "Économie", "La banque en ligne suisse Swissquote a enregistré un bénéfice record l'année dernière."),
+        ],
+        "it": [
+            ("Il Consiglio federale annuncia nuove misure climatiche", "Politica", "Il Consiglio federale svizzero ha adottato oggi nuovi ambiziosi obiettivi climatici per il 2035."),
+            ("Record di passeggeri alle FFS", "Trasporti", "Le Ferrovie federali svizzere hanno superato per la prima volta la soglia dei 500 milioni di passeggeri."),
+        ],
+        "en": [
+            ("Swiss Federal Council announces new climate targets", "Politics", "The Swiss Federal Council today adopted ambitious new climate targets for 2035."),
+            ("SBB hits record 500 million passengers", "Transport", "Swiss Federal Railways has hit the 500 million passenger mark for the first time."),
+            ("New glacier study raises alarm", "Environment", "A new ETH Zurich study shows Swiss glaciers are melting even faster in 2025."),
+            ("Swiss chocolate exports hit record", "Economy", "Swiss chocolate exports reached a new record last year."),
+        ],
+    }
+
+    def __init__(self, output_dir: Path):
+        self.output_dir = output_dir
+        self.image_dir = output_dir / "images"
+        self.image_dir.mkdir(parents=True, exist_ok=True)
+        self._rng = __import__("random").Random(42)
+
+    def collect(self, limit: int = 400) -> list[DatasetExample]:
+        examples = []
+        generators = [
+            ("timetable", self._gen_timetables, 80),
+            ("receipt", self._gen_receipts, 80),
+            ("tax_form", self._gen_tax_forms, 60),
+            ("news", self._gen_news, 100),
+            ("multilingual_caption", self._gen_captions, 80),
+        ]
+        for name, gen_fn, target in generators:
+            if len(examples) >= limit:
+                break
+            try:
+                batch = gen_fn(min(target, limit - len(examples)))
+                examples.extend(batch)
+                logger.info("Synthetic %s: generated %d examples", name, len(batch))
+            except Exception as exc:
+                logger.warning("Synthetic %s failed: %s", name, exc)
+        return examples
+
+    def _make_image(self, name: str, width: int, height: int, bg: str, lines: list[str], font_size: int = 16) -> str:
+        from PIL import Image as PILImage, ImageDraw, ImageFont
+        img = PILImage.new("RGB", (width, height), bg)
+        draw = ImageDraw.Draw(img)
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+            font_s = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", max(12, font_size - 4))
+        except OSError:
+            font = ImageFont.load_default()
+            font_s = font
+        y = 15
+        for i, line in enumerate(lines):
+            f = font if i == 0 or line.startswith("═") or line.startswith("─") else font_s
+            draw.text((15, y), line, fill="black", font=f)
+            y += font_size + 6
+        filename = f"{hashlib.md5(name.encode()).hexdigest()[:12]}_{slug(name)}.png"
+        path = self.image_dir / filename
+        img.save(str(path))
+        return str(path.relative_to(BASE_DIR))
+
+    def _gen_timetables(self, limit: int) -> list[DatasetExample]:
+        examples = []
+        langs = ["de", "de", "de", "fr", "it", "en"]
+        lang_header = {"de": "Abfahrtstafel", "fr": "Tableau des départs", "it": "Tabella partenze", "en": "Departure Board"}
+        lang_gleis = {"de": "Gleis", "fr": "Voie", "it": "Binario", "en": "Platform"}
+        lang_dur = {"de": "Dauer", "fr": "Durée", "it": "Durata", "en": "Duration"}
+
+        for i in range(limit):
+            lang = langs[i % len(langs)]
+            station = self._rng.choice(self.STATIONS_DE)
+            departures = []
+            for j in range(self._rng.randint(4, 8)):
+                dest = self._rng.choice(self.STATIONS_DE)
+                while dest[0] == station[0]:
+                    dest = self._rng.choice(self.STATIONS_DE)
+                hour = self._rng.randint(5, 22)
+                minute = self._rng.choice([0, 3, 7, 12, 15, 18, 23, 28, 30, 32, 37, 42, 45, 48, 53, 58])
+                train_type = self._rng.choice(self.TRAIN_TYPES)
+                platform = self._rng.choice(self.PLATFORMS)
+                dur_h = self._rng.randint(0, 3)
+                dur_m = self._rng.choice([5, 12, 18, 23, 30, 35, 42, 47, 55])
+                departures.append({
+                    "time": f"{hour:02d}:{minute:02d}",
+                    "dest": dest[0], "train": f"{train_type} {self._rng.randint(1, 999)}",
+                    "platform": platform, "duration": f"{dur_h}h{dur_m:02d}",
+                })
+            departures.sort(key=lambda d: d["time"])
+
+            lines = [f"{station[0]} — {lang_header[lang]}", "═" * 40]
+            first_time = None
+            for dep in departures:
+                line = f"{dep['time']}  {dep['dest']:<20s} {dep['train']:<10s} {lang_gleis[lang]} {dep['platform']}"
+                lines.append(line)
+                if first_time is None:
+                    first_time = dep
+
+            img_path = self._make_image(f"timetable_{station[0]}_{i}", 650, max(250, 30 * len(lines)), "#f5f5f0", lines)
+
+            first_dep = departures[0]
+            qa = [
+                QAPair(f"What time does the first train to {first_dep['dest']} depart from {station[0]}?", first_dep["time"]),
+                QAPair(f"Which {lang_gleis[lang].lower()} does the train to {first_dep['dest']} use?", first_dep["platform"]),
+                QAPair(f"How long is the journey from {station[0]} to {first_dep['dest']}?", first_dep["duration"]),
+                QAPair(f"How many departures are shown on this {lang_header[lang].lower()}?", str(len(departures))),
+            ]
+            examples.append(DatasetExample(
+                image_path=img_path,
+                text="\n".join(lines),
+                language=lang,
+                source="synthetic_sbb",
+                category="timetable",
+                qa_pairs=qa,
+                metadata={"station": station[0], "station_id": station[1], "num_departures": len(departures)},
+            ))
+        return examples
+
+    def _gen_receipts(self, limit: int) -> list[DatasetExample]:
+        examples = []
+        stores = [("Migros", "de"), ("Coop", "fr"), ("Denner", "de"), ("Spar", "de"), ("Volg", "de"), ("Aldi Suisse", "de")]
+        cities = ["Zürich", "Bern", "Basel", "Lausanne", "Luzern", "Genève", "St. Gallen", "Winterthur", "Thun", "Biel"]
+        streets = ["Bahnhofstrasse", "Hauptgasse", "Seestrasse", "Marktgasse", "Rue du Rhône", "Rue de Lausanne"]
+
+        for i in range(limit):
+            store, lang = self._rng.choice(stores)
+            city = self._rng.choice(cities)
+            street = self._rng.choice(streets)
+            products = self._rng.sample(self.PRODUCTS.get(lang, self.PRODUCTS["de"]), self._rng.randint(3, 7))
+            total = sum(float(p[1].replace("CHF ", "").replace(",", ".")) for p in products)
+            mwst_rate = self._rng.choice([2.5, 7.7])
+            mwst = round(total * mwst_rate / (100 + mwst_rate), 2)
+
+            lines = [store.upper(), f"{street} {self._rng.randint(1, 80)}, {city}", "─" * 35]
+            for name, price in products:
+                lines.append(f"{name:<28s} {price}")
+            lines.append("─" * 35)
+            lines.append(f"{'Subtotal':<28s} CHF {total:.2f}")
+            lines.append(f"{'MWST ' + str(mwst_rate) + '%':<28s} CHF {mwst:.2f}")
+            lines.append(f"{'TOTAL':<28s} CHF {total:.2f}")
+            lines.append("─" * 35)
+            lines.append(self._rng.choice(["Kartenzahlung", "Barzahlung", "Payment by card", "Paiement par carte"]))
+            lines.append(self._rng.choice(["Vielen Dank!", "Merci!", "Grazie!", "Thank you!"]))
+
+            img_path = self._make_image(f"receipt_{store}_{i}", 420, max(300, 20 * len(lines)), "#ffffff", lines)
+
+            qa = [
+                QAPair(f"What is the total amount on this {store} receipt?", f"CHF {total:.2f}"),
+                QAPair(f"How many items were purchased?", str(len(products))),
+                QAPair(f"Which store is this receipt from?", store),
+                QAPair(f"In which city was this purchase made?", city),
+            ]
+            examples.append(DatasetExample(
+                image_path=img_path,
+                text="\n".join(lines),
+                language=lang,
+                source=f"synthetic_{store.lower()}",
+                category="receipt",
+                qa_pairs=qa,
+                metadata={"store": store, "city": city, "total": f"{total:.2f}", "num_items": len(products)},
+            ))
+        return examples
+
+    def _gen_tax_forms(self, limit: int) -> list[DatasetExample]:
+        examples = []
+        for i in range(limit):
+            fields = {}
+            for key, values in self.TAX_FIELDS["de"].items():
+                fields[key] = self._rng.choice(values)
+            ahv = f"756.{self._rng.randint(1000, 9999)}.{self._rng.randint(1000, 9999)}.{self._rng.randint(10, 99)}"
+            fields["AHV-Nummer"] = ahv
+            year = self._rng.choice([2023, 2024, 2025])
+            income = self._rng.randint(50000, 250000)
+            deductions = self._rng.randint(5000, min(income // 3, 50000))
+            net = income - deductions
+
+            lines = [
+                f"Einkommenssteuererklärung {year}",
+                f"Kanton {self._rng.choice(['Zürich', 'Bern', 'Basel-Stadt', 'Luzern', 'Aargau', 'St. Gallen'])}",
+                "═" * 45, "",
+            ]
+            for k, v in fields.items():
+                lines.append(f"{k + ':':<20s} {v}")
+            lines.extend(["", "Einkünfte:", f"  {'Bruttoeinkommen:':<22s} CHF {income:,}", f"  {'Abzüge:':<22s} CHF {deductions:,}", f"  {'Reineinkommen:':<22s} CHF {net:,}"])
+
+            img_path = self._make_image(f"tax_form_{i}", 550, max(400, 18 * len(lines)), "#fffff8", lines, font_size=14)
+
+            qa = [
+                QAPair(f"What is the last name on this tax form?", fields["Nachname"]),
+                QAPair(f"What is the AHV number?", ahv),
+                QAPair(f"What is the gross income (Bruttoeinkommen)?", f"CHF {income:,}"),
+                QAPair(f"What is the net income (Reineinkommen)?", f"CHF {net:,}"),
+                QAPair(f"What tax year is this form for?", str(year)),
+                QAPair(f"What is the marital status (Zivilstand)?", fields["Zivilstand"]),
+            ]
+            examples.append(DatasetExample(
+                image_path=img_path,
+                text="\n".join(lines),
+                language="de",
+                source="synthetic_tax",
+                category="government_form",
+                qa_pairs=qa,
+                metadata={"ahv": ahv, "year": year, "income": income, "net_income": net},
+            ))
+        return examples
+
+    def _gen_news(self, limit: int) -> list[DatasetExample]:
+        examples = []
+        all_topics = []
+        for lang, topics in self.NEWS_TOPICS.items():
+            for title, category, body in topics:
+                all_topics.append((lang, title, category, body))
+
+        for i in range(limit):
+            lang, title, category, body = self._rng.choice(all_topics)
+            date_day = self._rng.randint(1, 28)
+            date_month = self._rng.randint(1, 12)
+            date_str = f"{date_day:02d}.{date_month:02d}.2025"
+
+            lines = [title, f"Datum: {date_str}", f"Kategorie: {category}" if lang == "de" else f"Catégorie: {category}", "─" * 50, body, "", f"Quelle: swissinfo.ch"]
+
+            img_path = self._make_image(f"news_{lang}_{i}", 700, max(200, 18 * len(lines)), "#f0f0f5", lines, font_size=14)
+
+            qa = [
+                QAPair("What is this article about?", title),
+                QAPair("What category does this article belong to?", category),
+                QAPair("When was this article published?", date_str),
+            ]
+            examples.append(DatasetExample(
+                image_path=img_path,
+                text="\n".join(lines),
+                language=lang,
+                source="synthetic_news",
+                category="news",
+                qa_pairs=qa,
+                metadata={"title": title, "category": category, "date": date_str},
+            ))
+        return examples
+
+    def _gen_captions(self, limit: int) -> list[DatasetExample]:
+        landmarks = [
+            ("Matterhorn", "Zermatt", "mountain", {"de": "Das Matterhorn bei Sonnenaufgang", "fr": "Le Cervin au lever du soleil", "en": "The Matterhorn at sunrise", "it": "Il Cervino all'alba"}),
+            ("Zürichsee", "Zürich", "lake", {"de": "Blick über den Zürichsee", "fr": "Vue sur le lac de Zurich", "en": "View over Lake Zurich", "it": "Vista sul lago di Zurigo"}),
+            ("Bundeshaus", "Bern", "building", {"de": "Das Bundeshaus in Bern", "fr": "Le Palais fédéral à Berne", "en": "The Federal Palace in Bern", "it": "Il Palazzo federale a Berna"}),
+            ("Chapel Bridge", "Luzern", "bridge", {"de": "Die Kapellbrücke in Luzern", "fr": "Le pont de la Chapelle à Lucerne", "en": "The Chapel Bridge in Lucerne", "it": "Il Ponte della Cappella a Lucerna"}),
+            ("Jet d'Eau", "Genève", "fountain", {"de": "Der Jet d'Eau in Genf", "fr": "Le Jet d'Eau à Genève", "en": "The Jet d'Eau in Geneva", "it": "Il Jet d'Eau a Ginevra"}),
+            ("Chillon Castle", "Montreux", "castle", {"de": "Das Schloss Chillon am Genfersee", "fr": "Le Château de Chillon au lac Léman", "en": "Chillon Castle on Lake Geneva", "it": "Il Castello di Chillon sul Lago di Ginevra"}),
+            ("Rhine Falls", "Schaffhausen", "waterfall", {"de": "Der Rheinfall bei Schaffhausen", "fr": "Les chutes du Rhin à Schaffhouse", "en": "The Rhine Falls near Schaffhausen", "it": "Le cascate del Reno a Sciaffusa"}),
+            ("Aletsch Glacier", "Valais", "glacier", {"de": "Der Aletschgletscher im Wallis", "fr": "Le glacier d'Aletsch au Valais", "en": "The Aletsch Glacier in Valais", "it": "Il ghiacciaio dell'Aletsch nel Vallese"}),
+            ("Pilatus", "Luzern", "mountain", {"de": "Der Pilatus bei Luzern", "fr": "Le Pilatus près de Lucerne", "en": "Mount Pilatus near Lucerne", "it": "Il Pilatus vicino a Lucerna"}),
+            ("Bernina Express", "Graubünden", "train", {"de": "Der Bernina Express in Graubünden", "fr": "Le Bernina Express en Grisons", "en": "The Bernina Express in Graubünden", "it": "Il Bernina Express in Grigioni"}),
+        ]
+        lang_list = ["de", "fr", "en", "it"]
+        examples = []
+        for i in range(limit):
+            landmark, city, ltype, captions = self._rng.choice(landmarks)
+            lang = lang_list[i % len(lang_list)]
+            caption = captions[lang]
+
+            lines = [f"{landmark}, {city}", "═" * 30, f"Typ: {ltype}" if lang == "de" else f"Type: {ltype}", "", caption]
+            bg = self._rng.choice(["#87CEEB", "#90EE90", "#DEB887", "#F0F0F0", "#E6E6FA"])
+            img_path = self._make_image(f"caption_{landmark}_{lang}_{i}", 600, 300, bg, lines, font_size=18)
+
+            ref_captions = list(captions.values())
+            qa = [
+                QAPair(f"Describe this image in {lang}.", caption),
+                QAPair("What landmark is shown?", landmark),
+                QAPair("In which city or canton is this located?", city),
+            ]
+            examples.append(DatasetExample(
+                image_path=img_path,
+                text=caption,
+                language=lang,
+                source="synthetic_caption",
+                category="captioning",
+                qa_pairs=qa,
+                metadata={"landmark": landmark, "city": city, "type": ltype, "all_captions": json.dumps(captions)},
+            ))
+        return examples
+
+
+# ---------------------------------------------------------------------------
+# Swiss Open Data API (reliable, no auth required)
+# ---------------------------------------------------------------------------
+
+class SwissOpenDataScraper:
+    """Scrape from Swiss open data APIs that are stable and auth-free."""
+
+    def collect(self, client: httpx.Client, limit: int = 100) -> list[DatasetExample]:
+        examples = []
+        logger.info("SwissOpenData: collecting from opendata.swiss …")
+        self._collect_opendata_catalog(client, examples, limit)
+        logger.info("SwissOpenData: collected %d examples", len(examples))
+        return examples
+
+    def _collect_opendata_catalog(self, client: httpx.Client, examples: list[DatasetExample], limit: int):
+        try:
+            resp = client.get(
+                "https://opendata.swiss/api/3/action/package_search",
+                params={"rows": min(limit, 50), "q": "switzerland transport"},
+                follow_redirects=True,
+            )
+            resp.raise_for_status()
+            datasets = resp.json().get("result", {}).get("results", [])
+            for ds in datasets:
+                if len(examples) >= limit:
+                    break
+                title = ds.get("title", "")
+                if isinstance(title, dict):
+                    title = title.get("de", title.get("en", str(title)))
+                notes = ds.get("notes", "")
+                if isinstance(notes, dict):
+                    notes = notes.get("de", notes.get("en", str(notes)))
+                org = ds.get("organization", {})
+                org_name = org.get("title", "") if isinstance(org, dict) else str(org)
+                if isinstance(org_name, dict):
+                    org_name = org_name.get("de", org_name.get("en", str(org_name)))
+
+                text = f"Dataset: {title}\nOrganization: {org_name}\n\n{notes[:1500]}"
+                qa = [
+                    QAPair("What is this dataset about?", title[:200]),
+                    QAPair("Which organization published this dataset?", org_name[:100] if org_name else "Swiss Federal Administration"),
+                ]
+                examples.append(DatasetExample(
+                    image_path="",
+                    text=text,
+                    language="de",
+                    source="opendata.swiss",
+                    category="open_data",
+                    qa_pairs=qa,
+                    metadata={"dataset_id": ds.get("id", ""), "organization": org_name},
+                ))
+        except Exception as exc:
+            logger.warning("opendata.swiss catalog failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
 # Dataset builder
 # ---------------------------------------------------------------------------
 
@@ -1193,7 +1599,7 @@ def main():
     )
     parser.add_argument(
         "--scrapers", nargs="+",
-        choices=["sbb", "zvv", "admin", "news", "products", "all"],
+        choices=["sbb", "zvv", "admin", "news", "products", "synthetic", "opendata", "all"],
         default=["all"],
         help="Which scrapers to run",
     )
@@ -1205,7 +1611,7 @@ def main():
 
     scrapers_to_run = set(args.scrapers)
     if "all" in scrapers_to_run:
-        scrapers_to_run = {"sbb", "zvv", "admin", "news", "products"}
+        scrapers_to_run = {"sbb", "zvv", "admin", "news", "products", "synthetic", "opendata"}
 
     # Divide limit across scrapers
     per_scraper = max(args.limit // len(scrapers_to_run), 50)
@@ -1227,6 +1633,16 @@ def main():
             all_examples.extend(
                 ProductCatalogScraper().collect(client, limit=per_scraper)
             )
+        if "opendata" in scrapers_to_run:
+            all_examples.extend(
+                SwissOpenDataScraper().collect(client, limit=per_scraper)
+            )
+
+    # Synthetic generator (no network needed)
+    if "synthetic" in scrapers_to_run:
+        synth = SyntheticGenerator(DATA_DIR)
+        synth_target = max(args.limit - len(all_examples), 200)
+        all_examples.extend(synth.collect(limit=synth_target))
 
     logger.info("Total examples collected: %d", len(all_examples))
 
