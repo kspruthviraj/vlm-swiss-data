@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+dist/
+build/
+swiss_dataset/images/
+swiss_dataset/pdfs/
+swiss_dataset/raw/
+swiss_dataset/dataset/
+collect.log
